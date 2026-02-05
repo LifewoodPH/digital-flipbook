@@ -236,7 +236,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [view, navigate]);
 
-  const isLandingPage = location.pathname === '/landing';
+  const isLandingPage = false; // Sidebar always visible
 
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'bg-[#0D0D0F] text-white' : 'bg-[#F5F5F7] text-gray-900'}`}>
@@ -264,10 +264,7 @@ const App: React.FC = () => {
 
         <main className={`flex-1 relative w-full h-full ${isLandingPage ? '' : 'pt-16'} overflow-y-auto no-scrollbar ${darkMode ? 'bg-[#0D0D0F]' : 'bg-[#F5F5F7]'}`}>
           <Routes>
-            {/* 3D Landing Page Route */}
-            <Route path="/landing" element={<LandingPage />} />
-
-            {/* Home Route */}
+            {/* Home Route - with 3D effects */}
             <Route path="/" element={
               <Home 
                 books={books}
@@ -278,8 +275,16 @@ const App: React.FC = () => {
                 onSelectBook={(b) => setPendingBook(b)}
               />
             } />
-            
-            <Route path="/home" element={<Navigate to="/" replace />} />
+            <Route path="/home" element={
+              <Home 
+                books={books}
+                darkMode={darkMode}
+                variant={homeVariant}
+                onUpload={() => navigate('/upload')}
+                onBrowseLibrary={() => navigate('/library')}
+                onSelectBook={(b) => setPendingBook(b)}
+              />
+            } />
 
             {/* Upload Route */}
             <Route path="/upload" element={

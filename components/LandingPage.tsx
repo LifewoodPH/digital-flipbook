@@ -1,11 +1,13 @@
+import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Scene3D } from './3d/Scene3D';
 import { FloatingCube } from './3d/FloatingCube';
 import { FloatingSphere } from './3d/FloatingSphere';
 import { WireframeGlobe } from './3d/WireframeGlobe';
-import { Sparkles, Zap, Globe } from 'lucide-react';
+import { Sparkles, Zap, Globe, BookOpen } from 'lucide-react';
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { scrollYProgress } = useScroll();
   
   const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
@@ -19,6 +21,22 @@ export default function LandingPage() {
 
   return (
     <div className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
+      {/* Minimal top bar - Enter App */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-black/20 backdrop-blur-sm border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-6 h-6 text-white" />
+          <span className="text-white font-semibold">Lifewood Flipbook</span>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/library')}
+          className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium border border-white/20 transition-colors"
+        >
+          Enter App
+        </motion.button>
+      </div>
+
       {/* Animated Background Gradient */}
       <div className="fixed inset-0 bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10 animate-gradient-shift pointer-events-none" />
       
@@ -48,6 +66,7 @@ export default function LandingPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/library')}
             className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-600 text-white rounded-full text-lg font-semibold shadow-2xl shadow-purple-500/50 hover:shadow-purple-500/70 transition-shadow"
           >
             Explore Now
@@ -160,6 +179,7 @@ export default function LandingPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/library')}
             className="px-10 py-5 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-full text-xl font-bold shadow-2xl shadow-cyan-500/50 hover:shadow-cyan-500/70 transition-shadow"
           >
             Get Started Today
