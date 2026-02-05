@@ -10,7 +10,8 @@ import {
   Globe, 
   Users, 
   Moon, 
-  Sun
+  Sun,
+  Sparkles
 } from 'lucide-react';
 
 export type LibraryFilter = 'all' | 'favorites' | 'philippines' | 'internal' | 'international' | 'ph_interns';
@@ -124,6 +125,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
             label="Home" 
             active={location.pathname === '/' || location.pathname === '/home'} 
             to="/"
+          />
+          <NavItem 
+            icon={Sparkles} 
+            label="3D Landing" 
+            active={location.pathname === '/landing'} 
+            to="/landing"
           />
           <NavItem 
             icon={AllBooksIcon} 

@@ -12,6 +12,7 @@ import Library from './components/Library';
 import LibraryActionModal from './components/LibraryActionModal';
 import UploadCategoryModal from './components/UploadCategoryModal';
 import FeaturedCarousel from './components/FeaturedCarousel';
+import LandingPage from './components/LandingPage';
 import { getDocument } from './utils/pdfUtils';
 import { BookRef, LibraryBook, BookCategory } from './types';
 import type { LibraryFilter } from './components/Sidebar';
@@ -235,10 +236,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [view, navigate]);
 
+  const isLandingPage = location.pathname === '/landing';
+
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans transition-colors duration-300 ${darkMode ? 'bg-[#0D0D0F] text-white' : 'bg-[#F5F5F7] text-gray-900'}`}>
       {/* Sidebar - Shared across views except reader (optional) */}
-      {view !== 'reader' && (
+      {view !== 'reader' && !isLandingPage && (
         <Sidebar 
           currentView={view} 
           currentFilter={libraryFilter}
@@ -250,17 +253,20 @@ const App: React.FC = () => {
       )}
 
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <Header 
+        {!isLandingPage && <Header 
           view={view}
           darkMode={darkMode}
           homeVariant={homeVariant}
           onToggleHomeVariant={() => setHomeVariant(prev => prev === 1 ? 2 : 1)}
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
           fileName={selectedBook?.name} 
-        />
+        />}
 
-        <main className={`flex-1 relative w-full h-full pt-16 overflow-y-auto no-scrollbar ${darkMode ? 'bg-[#0D0D0F]' : 'bg-[#F5F5F7]'}`}>
+        <main className={`flex-1 relative w-full h-full ${isLandingPage ? '' : 'pt-16'} overflow-y-auto no-scrollbar ${darkMode ? 'bg-[#0D0D0F]' : 'bg-[#F5F5F7]'}`}>
           <Routes>
+            {/* 3D Landing Page Route */}
+            <Route path="/landing" element={<LandingPage />} />
+
             {/* Home Route */}
             <Route path="/" element={
               <Home 
