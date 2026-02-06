@@ -89,24 +89,42 @@ export async function saveBookMetadata(book: {
   is_favorite?: boolean;
   summary?: string;
 }): Promise<StoredBook> {
+  // Get current user (or use anonymous fallback)
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  const insertData: any = {
+    title: book.title,
+    original_filename: book.original_filename,
+    pdf_url: book.pdf_url,
+    cover_url: book.cover_url,
+    total_pages: book.total_pages,
+    file_size: book.file_size,
+    category: book.category || null,
+    is_favorite: book.is_favorite || false,
+    summary: book.summary || null
+  };
+  
+  // Only add user_id if we have an authenticated user
+  // Some RLS policies auto-fill this, others require it
+  if (user) {
+    insertData.user_id = user.id;
+  }
+
   const { data, error } = await supabase
     .from('books')
-    .insert({
-      title: book.title,
-      original_filename: book.original_filename,
-      pdf_url: book.pdf_url,
-      cover_url: book.cover_url,
-      total_pages: book.total_pages,
-      file_size: book.file_size,
-      category: book.category || null,
-      is_favorite: book.is_favorite || false,
-      summary: book.summary || null
-    })
+    .insert(insertData)
     .select()
     .single();
 
   if (error) {
     console.error('Save metadata error:', error);
+    // Check for common RLS/permission errors
+    if (error.code === '42501' || error.message.includes('policy')) {
+      throw new Error(`Database permission denied. Check RLS policies are set up correctly.`);
+    }
+    if (error.message.includes('user_id') || error.message.includes('null')) {
+      throw new Error(`User authentication required. Please sign in or disable RLS for testing.`);
+    }
     throw new Error(`Failed to save book: ${error.message}`);
   }
 

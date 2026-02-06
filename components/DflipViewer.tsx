@@ -1,185 +1,158 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+interface DflipViewerProps {
+  pdfUrl: string;
+  bookId: string;
+}
+
 declare global {
   interface Window {
     DFLIP: any;
     jQuery: any;
-    $: any;
   }
 }
 
-interface DflipViewerProps {
-  pdfUrl: string;
-  onFlip?: (pageIndex: number) => void;
-  onReady?: () => void;
-  mode?: 'manual' | 'preview';
-}
-
-const DflipViewer: React.FC<DflipViewerProps> = ({ 
-  pdfUrl, 
-  onFlip, 
-  onReady,
-  mode = 'manual' 
-}) => {
+const DflipViewer: React.FC<DflipViewerProps> = ({ pdfUrl, bookId }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const bookIdRef = useRef<string>('dflip_' + Math.random().toString(36).substr(2, 9));
-  const [scriptsLoaded, setScriptsLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
-  // Load dflip scripts dynamically
   useEffect(() => {
-    const loadScript = (src: string): Promise<void> => {
-      return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) {
-          resolve();
-          return;
-        }
-        const script = document.createElement('script');
-        script.src = src;
-        script.async = false;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error(`Failed to load ${src}`));
-        document.head.appendChild(script);
-      });
-    };
+    if (!containerRef.current || !pdfUrl) return;
 
-    const loadCSS = (href: string): void => {
-      if (document.querySelector(`link[href="${href}"]`)) return;
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      document.head.appendChild(link);
-    };
-
-    const loadDflip = async () => {
+    const initDflip = async () => {
       try {
-        // Load CSS first
-        loadCSS('/dflip/css/dflip.min.css');
-        loadCSS('/dflip/css/themify-icons.min.css');
+        setLoading(true);
+        setLoadingProgress(0);
+        setError(null);
 
-        // Load jQuery first (required by dflip)
-        await loadScript('/dflip/js/libs/jquery.min.js');
+        // FETCH PDF OURSELVES from Supabase
+        console.log('Fetching PDF from:', pdfUrl);
         
-        // Wait for jQuery to be available
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Load main dflip (it includes/loads its own dependencies)
-        await loadScript('/dflip/js/dflip.min.js');
-        
-        // Wait for dflip to initialize
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        if (window.DFLIP && window.jQuery) {
-          setScriptsLoaded(true);
-          console.log('DFLIP loaded successfully');
-        } else {
-          throw new Error('DFLIP not available after loading scripts');
+        const response = await fetch(pdfUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.status}`);
         }
-      } catch (err) {
-        console.error('Failed to load dflip:', err);
-        setError('Failed to load flipbook library');
+        
+        // Get total size for progress
+        const contentLength = response.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        
+        // Read the response as stream for progress tracking
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('Failed to get reader');
+        
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          chunks.push(value);
+          received += value.length;
+          
+          if (total > 0) {
+            setLoadingProgress(Math.round((received / total) * 100));
+          }
+        }
+        
+        // Combine chunks into blob
+        const blob = new Blob(chunks, { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        blobUrlRef.current = blobUrl;
+        
+        console.log('PDF fetched, blob URL:', blobUrl);
+        setLoadingProgress(100);
+
+        // Wait for DFLIP and jQuery to load
+        await new Promise<void>((resolve, reject) => {
+          let attempts = 0;
+          const check = () => {
+            if (window.DFLIP && window.jQuery) {
+              resolve();
+            } else if (attempts > 100) {
+              reject(new Error('DFLIP library not loaded'));
+            } else {
+              attempts++;
+              setTimeout(check, 50);
+            }
+          };
+          check();
+        });
+
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+          
+          // Create dflip element with BLOB URL (same-origin, no CORS issues)
+          const bookDiv = document.createElement('div');
+          bookDiv.className = '_df_book';
+          bookDiv.id = `df_${bookId}`;
+          bookDiv.setAttribute('source', blobUrl);
+          bookDiv.setAttribute('webgl', 'true');
+          bookDiv.setAttribute('backgroundcolor', 'rgb(243, 240, 252)');
+          bookDiv.setAttribute('height', String(window.innerHeight - 100));
+          bookDiv.style.width = '100%';
+          bookDiv.style.height = '100%';
+          
+          containerRef.current.appendChild(bookDiv);
+          
+          // Parse and initialize dflip
+          window.DFLIP.parseBooks();
+          
+          // Give dflip time to initialize
+          setTimeout(() => setLoading(false), 1000);
+        }
+      } catch (err: any) {
+        console.error('DFlip init error:', err);
+        setError(err.message || 'Failed to load book');
+        setLoading(false);
       }
     };
 
-    loadDflip();
-  }, []);
+    initDflip();
 
-  // Initialize flipbook using HTML attribute method (like the example)
-  useEffect(() => {
-    if (!scriptsLoaded || !containerRef.current || !pdfUrl) return;
-
-    const bookId = bookIdRef.current;
-    
-    // Clear any existing content
-    containerRef.current.innerHTML = '';
-
-    // Create the _df_book element with attributes (matching the example)
-    const bookDiv = document.createElement('div');
-    bookDiv.className = '_df_book';
-    bookDiv.id = bookId;
-    bookDiv.setAttribute('source', pdfUrl);
-    bookDiv.setAttribute('webgl', 'true');
-    bookDiv.setAttribute('backgroundcolor', 'transparent');
-    bookDiv.setAttribute('height', '100%');
-    
-    containerRef.current.appendChild(bookDiv);
-
-    // Let dflip parse and initialize
-    const initTimeout = setTimeout(() => {
-      if (window.DFLIP && window.DFLIP.parseBooks) {
-        window.DFLIP.parseBooks();
-        console.log('DFLIP.parseBooks() called');
-        onReady?.();
-      }
-    }, 200);
-
+    // Cleanup blob URL on unmount
     return () => {
-      clearTimeout(initTimeout);
-      // Try to clean up
-      const existing = document.getElementById(bookId);
-      if (existing) {
-        existing.remove();
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
-  }, [scriptsLoaded, pdfUrl, onReady]);
+  }, [pdfUrl, bookId]);
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-100 rounded-xl">
-        <div className="text-center p-8">
-          <p className="text-red-500 font-medium">{error}</p>
-          <p className="text-gray-500 text-sm mt-2">Please try refreshing the page</p>
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center text-red-500">
+          <p className="font-medium">Error loading book</p>
+          <p className="text-sm">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full min-h-[500px]">
-      {/* Flipbook Container - matching the example structure */}
+    <div className="w-full h-full relative" style={{ minHeight: '500px' }}>
+      {loading && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: 'rgb(243, 240, 252)' }}>
+          <div className="text-center">
+            <img src="/dflip/images/loading.gif" alt="Loading" className="w-16 h-16 mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">
+              {loadingProgress < 100 
+                ? `Downloading PDF ${loadingProgress}%...` 
+                : 'Initializing FlipBook...'}
+            </p>
+          </div>
+        </div>
+      )}
       <div 
         ref={containerRef} 
         className="w-full h-full"
         style={{ minHeight: '500px' }}
       />
-
-      {/* dflip custom styles */}
-      <style>{`
-        /* Ensure embedded mode fills container */
-        ._df_book {
-          width: 100% !important;
-          height: 100% !important;
-          min-height: 500px !important;
-        }
-        
-        .df-container {
-          width: 100% !important;
-          height: 100% !important;
-          background: transparent !important;
-        }
-        
-        .df-3dcanvas-container {
-          background: transparent !important;
-        }
-        
-        /* Control bar styling - white like the screenshot */
-        .df-ui-controls {
-          background: rgba(255,255,255,0.95) !important;
-          backdrop-filter: blur(10px) !important;
-          border-radius: 30px !important;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
-          border: 1px solid rgba(0,0,0,0.05) !important;
-        }
-        .df-ui-btn {
-          color: #333 !important;
-        }
-        .df-ui-btn:hover {
-          background: rgba(0,0,0,0.05) !important;
-        }
-        .df-ui-page {
-          color: #333 !important;
-        }
-      `}</style>
     </div>
   );
 };

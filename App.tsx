@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { GoogleGenAI } from "@google/genai";
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, BookOpen } from 'lucide-react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Home from './components/Home';
@@ -13,7 +13,6 @@ import Library from './components/Library';
 import LibraryActionModal from './components/LibraryActionModal';
 import UploadCategoryModal from './components/UploadCategoryModal';
 import FeaturedCarousel from './components/FeaturedCarousel';
-import LandingPage from './components/LandingPage';
 import { getDocument } from './utils/pdfUtils';
 import { BookRef, LibraryBook, BookCategory } from './types';
 import type { LibraryFilter } from './components/Sidebar';
@@ -27,11 +26,85 @@ import {
   type StoredBook 
 } from './src/lib/bookStorage';
 
+// Apple-style Success Modal Component
+const ConversionSuccessModal: React.FC<{
+  isOpen: boolean;
+  bookCount: number;
+  onClose: () => void;
+  onViewBooks: () => void;
+}> = ({ isOpen, bookCount, onClose, onViewBooks }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center">
+      {/* Backdrop with blur */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-md"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-3xl shadow-2xl w-[90%] max-w-md p-8 animate-in zoom-in-95 fade-in duration-300">
+        {/* Close button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X size={20} />
+        </button>
+        
+        {/* Success icon with glow */}
+        <div className="flex justify-center mb-6">
+          <div className="relative">
+            <div className="absolute inset-0 bg-green-400/30 rounded-full blur-xl animate-pulse" />
+            <div className="relative w-20 h-20 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center shadow-lg">
+              <CheckCircle2 size={40} className="text-white" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Title */}
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">
+          Conversion Successful
+        </h2>
+        
+        {/* Subtitle */}
+        <p className="text-gray-500 text-center mb-8">
+          {bookCount === 1 
+            ? "Your PDF has been converted to a digital flipbook!"
+            : `${bookCount} PDFs have been converted to digital flipbooks!`
+          }
+        </p>
+        
+        {/* Buttons */}
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onViewBooks}
+            className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all active:scale-[0.98]"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <BookOpen size={18} />
+              View in Library
+            </span>
+          </button>
+          
+          <button
+            onClick={onClose}
+            className="w-full py-3.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-all active:scale-[0.98]"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [darkMode, setDarkMode] = useState(true); // Start in dark mode for home
+  const [darkMode, setDarkMode] = useState(true);
   const [homeVariant, setHomeVariant] = useState<1 | 2>(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [readerMode, setReaderMode] = useState<'manual' | 'preview'>('manual');
@@ -45,6 +118,10 @@ const App: React.FC = () => {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isLoadingBook, setIsLoadingBook] = useState(false);
+  
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successBookCount, setSuccessBookCount] = useState(0);
   
   const bookRef = useRef<BookRef | null>(null);
   
@@ -75,36 +152,51 @@ const App: React.FC = () => {
         setLoadingStatus('Loading your library...');
         const storedBooks = await loadBooksFromSupabase();
         
-        // Convert stored books to LibraryBook format
-        const libraryBooks: LibraryBook[] = await Promise.all(
-          storedBooks.map(async (stored) => {
-            // Load the PDF document from the URL
-            const response = await fetch(stored.pdf_url);
-            const blob = await response.blob();
-            const file = new File([blob], stored.original_filename, { type: 'application/pdf' });
-            const doc = await getDocument(file);
-            
-            return {
-              id: stored.id,
-              name: stored.title,
-              doc: doc,
-              pdfUrl: stored.pdf_url,
-              coverUrl: stored.cover_url || '',
-              totalPages: stored.total_pages,
-              summary: stored.summary || undefined,
-              category: stored.category || undefined,
-              isFavorite: stored.is_favorite
-            };
+        if (storedBooks.length === 0) {
+          setLoadingStatus(null);
+          return;
+        }
+        
+        // Load books in parallel with individual error handling
+        const libraryBooks: LibraryBook[] = [];
+        
+        await Promise.all(
+          storedBooks.map(async (stored, index) => {
+            try {
+              setLoadingStatus(`Loading book ${index + 1} of ${storedBooks.length}...`);
+              
+              // Fetch PDF and create document
+              const response = await fetch(stored.pdf_url);
+              if (!response.ok) throw new Error('Failed to fetch PDF');
+              
+              const blob = await response.blob();
+              const file = new File([blob], stored.original_filename, { type: 'application/pdf' });
+              const doc = await getDocument(file);
+              
+              libraryBooks.push({
+                id: stored.id,
+                name: stored.title,
+                doc: doc,
+                pdfUrl: stored.pdf_url,
+                coverUrl: stored.cover_url || '',
+                totalPages: stored.total_pages,
+                summary: stored.summary || undefined,
+                category: stored.category || undefined,
+                isFavorite: stored.is_favorite
+              });
+            } catch (bookError) {
+              console.error(`Failed to load book "${stored.title}":`, bookError);
+              // Continue with other books even if one fails
+            }
           })
         );
         
         setBooks(libraryBooks);
         setLoadingStatus(null);
-        console.log(`Loaded ${libraryBooks.length} books from Supabase`);
+        console.log(`Loaded ${libraryBooks.length} of ${storedBooks.length} books from Supabase`);
       } catch (error) {
         console.error('Failed to load books from Supabase:', error);
         setLoadingStatus(null);
-        // Continue with empty library - user can still upload new books
       }
     };
 
@@ -136,16 +228,41 @@ const App: React.FC = () => {
       
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        setLoadingStatus(`Uploading Book ${i + 1} of ${total}...`);
+        
+        // Step 1: Converting PDF
+        setLoadingStatus(`Converting PDF to Digital Book... (${i + 1}/${total})`);
         
         // Parse PDF first
-        const doc = await getDocument(file);
-        const coverBase64 = await extractCover(doc);
+        let doc;
+        try {
+          doc = await getDocument(file);
+          console.log(`✓ PDF parsed: ${doc.numPages} pages`);
+        } catch (pdfError: any) {
+          console.error('PDF parsing failed:', pdfError);
+          throw new Error(`PDF parsing failed: ${pdfError.message || 'Invalid PDF format'}`);
+        }
         
-        setLoadingStatus(`Saving Book ${i + 1} of ${total} to cloud...`);
+        let coverBase64;
+        try {
+          coverBase64 = await extractCover(doc);
+          console.log('✓ Cover extracted');
+        } catch (coverError: any) {
+          console.error('Cover extraction failed:', coverError);
+          throw new Error(`Cover extraction failed: ${coverError.message}`);
+        }
+        
+        // Step 2: Uploading to cloud
+        setLoadingStatus(`Uploading to cloud... (${i + 1}/${total})`);
         
         // Upload PDF to Supabase Storage
-        const pdfUrl = await uploadPDF(file);
+        let pdfUrl;
+        try {
+          pdfUrl = await uploadPDF(file);
+          console.log('✓ PDF uploaded:', pdfUrl);
+        } catch (uploadError: any) {
+          console.error('PDF upload failed:', uploadError);
+          throw new Error(`PDF upload failed: ${uploadError.message}`);
+        }
         
         // Generate temporary ID for cover upload
         const tempId = Math.random().toString(36).substr(2, 9) + Date.now();
@@ -154,19 +271,30 @@ const App: React.FC = () => {
         let coverUrl = coverBase64; // fallback to base64
         try {
           coverUrl = await uploadCover(coverBase64, tempId);
+          console.log('✓ Cover uploaded:', coverUrl);
         } catch (e) {
           console.warn('Cover upload failed, using base64:', e);
         }
         
+        // Step 3: Saving metadata
+        setLoadingStatus(`Finalizing... (${i + 1}/${total})`);
+        
         // Save metadata to Supabase database
-        const savedBook = await saveBookMetadata({
-          title: file.name.replace('.pdf', ''),
-          original_filename: file.name,
-          pdf_url: pdfUrl,
-          cover_url: coverUrl,
-          total_pages: doc.numPages,
-          file_size: file.size
-        });
+        let savedBook;
+        try {
+          savedBook = await saveBookMetadata({
+            title: file.name.replace('.pdf', ''),
+            original_filename: file.name,
+            pdf_url: pdfUrl,
+            cover_url: coverUrl,
+            total_pages: doc.numPages,
+            file_size: file.size
+          });
+          console.log('✓ Metadata saved:', savedBook.id);
+        } catch (dbError: any) {
+          console.error('Database save failed:', dbError);
+          throw new Error(`Database save failed: ${dbError.message}`);
+        }
         
         newBooks.push({
           id: savedBook.id,
@@ -186,19 +314,37 @@ const App: React.FC = () => {
       // Add books to library
       setBooks(prev => [...prev, ...newBooks]);
       
-      // Queue all books for category selection (one by one)
+      // Show Apple-style success modal
+      setSuccessBookCount(newBooks.length);
+      setShowSuccessModal(true);
+      
+      // Queue books for category selection after modal closes
       if (newBooks.length > 0) {
         setUploadedBooksPending(newBooks);
       }
       
-      setConversionToast(`Successfully uploaded ${newBooks.length} book(s) to cloud!`);
-      setTimeout(() => setConversionToast(null), 4000);
-      
-    } catch (error) {
-      console.error("Failed to upload PDF", error);
+    } catch (error: any) {
+      console.error("Failed to upload PDF:", error);
       setLoadingStatus(null);
-      setConversionToast("Conversion failed. Please ensure your files are valid PDFs and try again.");
-      setTimeout(() => setConversionToast(null), 5000);
+      
+      // Show more specific error message
+      let errorMessage = "Conversion failed. ";
+      if (error?.message) {
+        if (error.message.includes('upload') || error.message.includes('storage')) {
+          errorMessage += "Storage upload error - check Supabase bucket permissions.";
+        } else if (error.message.includes('save') || error.message.includes('insert') || error.message.includes('user_id')) {
+          errorMessage += "Database error - check RLS policies or user authentication.";
+        } else if (error.message.includes('PDF') || error.message.includes('document')) {
+          errorMessage += "Invalid PDF file format.";
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += "Please ensure your files are valid PDFs and try again.";
+      }
+      
+      setConversionToast(errorMessage);
+      setTimeout(() => setConversionToast(null), 8000);
     }
   };
 
@@ -333,11 +479,29 @@ const App: React.FC = () => {
     setReaderMode(mode);
     
     try {
-      // Quick validation that PDF is accessible
+      // Validate PDF document exists and is valid
       const doc = pendingBook.doc;
-      await doc.getPage(1); // Just verify first page loads
+      if (!doc || typeof doc.getPage !== 'function') {
+        throw new Error('Invalid PDF document');
+      }
       
-      // Set view immediately - BookViewer will handle the detailed loading
+      // Check total pages
+      if (!doc.numPages || doc.numPages < 1) {
+        throw new Error('PDF has no pages');
+      }
+      
+      // Pre-load first few pages to ensure they render
+      console.log(`Loading book: ${pendingBook.name} (${doc.numPages} pages)`);
+      
+      const pagesToPreload = Math.min(3, doc.numPages);
+      for (let i = 1; i <= pagesToPreload; i++) {
+        const page = await doc.getPage(i);
+        if (!page) throw new Error(`Failed to load page ${i}`);
+      }
+      
+      console.log('Book pre-loaded successfully');
+      
+      // All validation passed - open the reader
       setSelectedBook(pendingBook);
       setPendingBook(null);
       setCurrentPage(0);
@@ -348,7 +512,7 @@ const App: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Error loading book:', error);
-      setConversionToast('Failed to load book. Please try again.');
+      setConversionToast('Failed to load book. The PDF may be corrupted.');
       setTimeout(() => setConversionToast(null), 4000);
     } finally {
       setIsLoadingBook(false);
@@ -499,48 +663,27 @@ const App: React.FC = () => {
               />
             } />
 
-            {/* Reader Route */}
+            {/* Reader Route - Using DFlip library */}
             <Route path="/reader/:bookId" element={
               selectedBook && (
-            <div className="w-full h-full min-h-0 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700 overflow-hidden relative">
-              {/* Light Purple/Lavender Background - matching dflip style */}
-              <div className="absolute inset-0 bg-[#E8E4EF]" />
-              
+            <div className="w-full h-full min-h-0 flex flex-col overflow-hidden relative">
               {/* Close button */}
               <button 
-                onClick={() => navigate('/library')}
-                className="absolute top-4 right-4 z-50 w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors"
+                onClick={() => { navigate('/library'); setSelectedBook(null); }}
+                className="absolute top-3 right-3 z-[9999] w-10 h-10 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/30 transition-all rounded-full"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <X size={24} />
               </button>
               
-              {readerMode === 'preview' && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 bg-gray-900/90 backdrop-blur-xl text-white px-5 py-2.5 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase flex items-center gap-2 border border-gray-700 shadow-xl animate-in fade-in slide-in-from-top-4 duration-500">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                  Preview Mode
-                </div>
-              )}
-
-              {/* DFlip Viewer - full screen with built-in controls */}
-              <div className="relative z-10 w-full h-full">
-                <DflipViewer 
-                  pdfUrl={selectedBook.pdfUrl}
+              {/* BookViewer - uses pre-parsed PDF, works reliably */}
+              <div className="flex-1 w-full h-full">
+                <BookViewer
+                  pdfDocument={selectedBook.doc}
                   onFlip={setCurrentPage}
-                  mode={readerMode}
+                  onBookInit={(book) => { bookRef.current = book; }}
+                  autoPlay={readerMode === 'preview'}
                 />
               </div>
-
-              {readerMode === 'preview' && (
-                <button 
-                  onClick={() => setReaderMode('manual')}
-                  className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 bg-white/90 backdrop-blur-xl text-black px-10 py-4 rounded-full font-bold text-sm shadow-2xl hover:bg-white transition-all active:scale-95 border border-white/50"
-                >
-                  Start Reading
-                </button>
-              )}
             </div>
               )
             } />
@@ -561,9 +704,20 @@ const App: React.FC = () => {
         onRemove={handleRemoveBook}
       />
 
+      {/* Apple-style Conversion Success Modal */}
+      <ConversionSuccessModal
+        isOpen={showSuccessModal}
+        bookCount={successBookCount}
+        onClose={() => setShowSuccessModal(false)}
+        onViewBooks={() => {
+          setShowSuccessModal(false);
+          // Don't navigate yet - let category modal show first
+        }}
+      />
+
       {/* Upload Category Modal - shown after uploading a book */}
       <UploadCategoryModal
-        book={uploadedBooksPending[0] || null}
+        book={!showSuccessModal ? uploadedBooksPending[0] : null}
         currentIndex={uploadedBooksPending.length > 0 ? 1 : 0}
         totalBooks={uploadedBooksPending.length}
         onClose={() => {
