@@ -31,12 +31,12 @@
     "vite": "^6.2.0"
   },
   "overrides": {
-    "tar": "^7.4.0",
-    "rimraf": "^5.0.0",
+    "tar": "^7.4.3",
+    "rimraf": "^6.0.1",
     "glob": "^11.0.0",
-    "inflight": "npm:lru-cache@^10.0.0",
-    "npmlog": "npm:console-log-level@^1.4.0",
-    "gauge": "npm:console-log-level@^1.4.0",
-    "are-we-there-yet": "npm:console-log-level@^1.4.0"
+    "inflight": "npm:@isaacs/lru-cache@^1.0.3",
+    "npmlog": "npm:proc-log@^5.0.0",
+    "gauge": "npm:proc-log@^5.0.0",
+    "are-we-there-yet": "npm:proc-log@^5.0.0"
   }
 }
