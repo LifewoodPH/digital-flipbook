@@ -33,10 +33,11 @@
   "overrides": {
     "tar": "^7.4.3",
     "rimraf": "^6.0.1",
-    "glob": "^11.0.0",
+    "glob": "^13.0.1",
     "inflight": "npm:@isaacs/lru-cache@^1.0.3",
     "npmlog": "npm:proc-log@^5.0.0",
     "gauge": "npm:proc-log@^5.0.0",
-    "are-we-there-yet": "npm:proc-log@^5.0.0"
+    "are-we-there-yet": "npm:proc-log@^5.0.0",
+    "node-domexception": "npm:domexception@^4.0.0"
   }
 }
