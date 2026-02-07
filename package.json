@@ -29,5 +29,14 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "overrides": {
+    "tar": "^7.4.0",
+    "rimraf": "^5.0.0",
+    "glob": "^11.0.0",
+    "inflight": "npm:lru-cache@^10.0.0",
+    "npmlog": "npm:console-log-level@^1.4.0",
+    "gauge": "npm:console-log-level@^1.4.0",
+    "are-we-there-yet": "npm:console-log-level@^1.4.0"
   }
 }
