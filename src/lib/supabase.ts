@@ -27,7 +27,7 @@ export type Book = {
   cover_url?: string
   total_pages: number
   file_size?: number
-  category?: 'philippines' | 'internal' | 'international' | 'ph_interns'
+  category?: 'philippines' | 'internal' | 'international' | 'ph_interns' | 'deseret'
   is_favorite: boolean
   summary?: string
   created_at: string

@@ -10,6 +10,7 @@ const SECTION_TITLES: Record<LibraryFilter, string> = {
   internal: 'Internal Flipbooks',
   international: 'International Flipbooks',
   ph_interns: 'PH Interns Flipbooks',
+  deseret: 'Deseret Flipbooks',
 };
 
 interface LibraryProps {

@@ -15,6 +15,7 @@ const CATEGORIES: { id: BookCategory; label: string; icon: React.ElementType; co
   { id: 'internal', label: 'Internal', icon: Building, color: 'bg-purple-500' },
   { id: 'international', label: 'International', icon: Globe, color: 'bg-green-500' },
   { id: 'ph_interns', label: 'PH Interns', icon: Users, color: 'bg-orange-500' },
+  { id: 'deseret', label: 'Deseret', icon: MapPin, color: 'bg-yellow-500' },
 ];
 
 const UploadCategoryModal: React.FC<UploadCategoryModalProps> = ({ 

@@ -13,7 +13,7 @@ import {
   Sun
 } from 'lucide-react';
 
-export type LibraryFilter = 'all' | 'favorites' | 'philippines' | 'internal' | 'international' | 'ph_interns';
+export type LibraryFilter = 'all' | 'favorites' | 'philippines' | 'internal' | 'international' | 'ph_interns' | 'deseret';
 
 interface SidebarProps {
   currentView: 'home' | 'library' | 'upload' | 'reader';
@@ -111,7 +111,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
             </svg>
           </div>
           <div className="flex flex-col">
-            <span className={`text-sm font-bold tracking-tight leading-tight ${sidebarIsLight ? 'text-gray-900' : 'text-white'}`}>Lifewood</span>
+            <span className={`text-sm font-bold tracking-tight leading-tight ${sidebarIsLight ? 'text-gray-900' : 'text-white'}`}>Lifewood Philippines</span>
             <span className={`text-[10px] uppercase tracking-widest font-bold ${sidebarIsLight ? 'text-gray-400' : 'text-gray-500'}`}>Flipbook</span>
           </div>
         </div>
@@ -175,6 +175,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
           color="#F97316" 
           active={location.pathname === '/ph-interns'}
           to="/ph-interns"
+        />
+        <NavItem 
+          icon={MapPin} 
+          label="Deseret" 
+          color="#EAB308" 
+          active={location.pathname === '/deseret'}
+          to="/deseret"
         />
       </div>
 

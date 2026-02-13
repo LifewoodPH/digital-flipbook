@@ -19,7 +19,7 @@ export interface PDFPageViewport {
   scale: number;
 }
 
-export type BookCategory = 'philippines' | 'internal' | 'international' | 'ph_interns';
+export type BookCategory = 'philippines' | 'internal' | 'international' | 'ph_interns' | 'deseret';
 
 export interface LibraryBook {
   id: string;

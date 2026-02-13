@@ -140,6 +140,7 @@ const App: React.FC = () => {
     if (location.pathname === '/internal') return 'internal';
     if (location.pathname === '/international') return 'international';
     if (location.pathname === '/ph-interns') return 'ph_interns';
+    if (location.pathname === '/deseret') return 'deseret';
     return 'all';
   };
 
@@ -673,6 +674,17 @@ const App: React.FC = () => {
               <Library
                 books={books}
                 filter="ph_interns"
+                darkMode={darkMode}
+                onSelectBook={(b) => setPendingBook(b)}
+                onAddNew={() => navigate('/upload')}
+                onRemoveBook={handleRemoveBook}
+              />
+            } />
+
+            <Route path="/deseret" element={
+              <Library
+                books={books}
+                filter="deseret"
                 darkMode={darkMode}
                 onSelectBook={(b) => setPendingBook(b)}
                 onAddNew={() => navigate('/upload')}
