@@ -297,7 +297,7 @@ const SignIn: React.FC = () => {
               </div>
 
               <h1 className="text-3xl xl:text-4xl font-extrabold leading-[1.15] tracking-tight mb-3 text-white">
-                Lifewood<br />
+                Lifewood Philippines<br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-emerald-400 to-teal-400">
                   Digital Flipbook
                 </span>
