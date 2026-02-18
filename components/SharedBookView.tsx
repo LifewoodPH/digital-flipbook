@@ -7,8 +7,13 @@ import { getDocument } from '../utils/pdfUtils';
 import { loadBookById } from '../src/lib/bookStorage';
 import type { LibraryBook, BookRef } from '../types';
 
-export default function SharedBookView() {
-  const { bookId } = useParams<{ bookId: string }>();
+interface SharedBookViewProps {
+  bookIdOverride?: string;
+}
+
+export default function SharedBookView({ bookIdOverride }: SharedBookViewProps) {
+  const { bookId: bookIdParam } = useParams<{ bookId: string }>();
+  const bookId = bookIdOverride || bookIdParam;
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [loading, setLoading] = useState(true);

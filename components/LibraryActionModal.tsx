@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BookOpen, X, Trash2, AlertCircle, Sparkles, Loader2, Check, Heart, Share2 } from 'lucide-react';
 import { LibraryBook, BookCategory } from '../types';
 import ShareLinkModal from './ShareLinkModal';
+import { createShareLink } from '../src/lib/bookStorage';
 
 const CATEGORY_OPTIONS: { value: BookCategory; label: string }[] = [
   { value: 'philippines', label: 'Philippines' },
@@ -218,7 +219,10 @@ const LibraryActionModal: React.FC<LibraryActionModalProps> = ({
     <ShareLinkModal
       isOpen={showShareModal}
       onClose={() => setShowShareModal(false)}
-      url={`${window.location.origin}/share/book/${book.id}`}
+      onGenerate={async () => {
+        const token = await createShareLink('book', book.id);
+        return `${window.location.origin}/s/${token}`;
+      }}
       title="Share Book"
       description={`Anyone with this link can view and read "${book.name.replace('.pdf', '')}".`}
       darkMode={darkMode || true}

@@ -7,6 +7,10 @@ import { getDocument } from '../utils/pdfUtils';
 import { loadBooksByCategory } from '../src/lib/bookStorage';
 import type { LibraryBook, BookCategory, BookRef } from '../types';
 
+interface SharedCategoryViewProps {
+  categorySlug?: string;
+}
+
 const CATEGORY_MAP: Record<string, { dbValue: BookCategory; displayName: string; color: string }> = {
   'philippines': { dbValue: 'philippines', displayName: 'Philippines', color: '#3B82F6' },
   'internal': { dbValue: 'internal', displayName: 'Internal', color: '#A855F7' },
@@ -16,8 +20,9 @@ const CATEGORY_MAP: Record<string, { dbValue: BookCategory; displayName: string;
   'angelhost': { dbValue: 'angelhost', displayName: 'Angelhost', color: '#EC4899' },
 };
 
-export default function SharedCategoryView() {
-  const { category } = useParams<{ category: string }>();
+export default function SharedCategoryView({ categorySlug }: SharedCategoryViewProps) {
+  const { category: categoryParam } = useParams<{ category: string }>();
+  const category = categorySlug || categoryParam;
   const categoryInfo = category ? CATEGORY_MAP[category] : null;
 
   const [books, setBooks] = useState<LibraryBook[]>([]);

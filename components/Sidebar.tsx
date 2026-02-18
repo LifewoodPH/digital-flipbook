@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home as HomeIcon,
@@ -16,6 +16,7 @@ import {
   Link2
 } from 'lucide-react';
 import ShareLinkModal from './ShareLinkModal';
+import { createShareLink } from '../src/lib/bookStorage';
 
 export type LibraryFilter = 'all' | 'favorites' | 'philippines' | 'internal' | 'international' | 'ph_interns' | 'deseret' | 'angelhost';
 
@@ -31,17 +32,22 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode, onToggleDarkMode, isMobileOpen, onMobileClose }) => {
   const location = useLocation();
 
-  const [shareModalUrl, setShareModalUrl] = useState<string | null>(null);
+  const [shareSlug, setShareSlug] = useState<string | null>(null);
   const [shareModalTitle, setShareModalTitle] = useState('');
 
-  const handleShareClick = (e: React.MouseEvent, shareUrl: string, label: string) => {
+  const handleShareClick = (e: React.MouseEvent, slug: string, label: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setShareModalUrl(shareUrl);
+    setShareSlug(slug);
     setShareModalTitle(`Share ${label} Flipbooks`);
   };
 
-  const NavItem = ({ icon: Icon, label, active, to, onClick, color, shareUrl }: any) => {
+  const handleGenerate = useCallback(async () => {
+    const token = await createShareLink('category', shareSlug!);
+    return `${window.location.origin}/s/${token}`;
+  }, [shareSlug]);
+
+  const NavItem = ({ icon: Icon, label, active, to, onClick, color, categorySlug }: any) => {
     const content = (
       <>
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
@@ -67,13 +73,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
         }`}>
           {label}
         </span>
-        {shareUrl && (
+        {categorySlug && (
           <button
-            onClick={(e) => handleShareClick(e, shareUrl, label)}
+            onClick={(e) => handleShareClick(e, categorySlug, label)}
             className={`p-1.5 rounded-lg transition-all shrink-0 opacity-0 group-hover:opacity-100 ${
               darkMode ? 'text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.06]' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
             }`}
-            title="Share category"
+            title="Generate share link"
           >
             <Link2 size={14} />
           </button>
@@ -147,12 +153,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
         {/* Categories */}
         <div className="px-5 space-y-1 mb-7">
           <p className={`px-4 text-[11px] font-semibold uppercase tracking-[0.15em] mb-3 ${darkMode ? 'text-zinc-600' : 'text-gray-400'}`}>Categories</p>
-          <NavItem icon={MapPin} label="Philippines" color="#3B82F6" active={location.pathname === '/philippines'} to="/philippines" shareUrl={`${window.location.origin}/share/philippines`} />
-          <NavItem icon={Building} label="Internal" color="#A855F7" active={location.pathname === '/internal'} to="/internal" shareUrl={`${window.location.origin}/share/internal`} />
-          <NavItem icon={Globe} label="International" color="#22C55E" active={location.pathname === '/international'} to="/international" shareUrl={`${window.location.origin}/share/international`} />
-          <NavItem icon={GraduationCap} label="PH Interns" color="#F97316" active={location.pathname === '/ph-interns'} to="/ph-interns" shareUrl={`${window.location.origin}/share/ph-interns`} />
-          <NavItem icon={BookOpen} label="Deseret" color="#EAB308" active={location.pathname === '/deseret'} to="/deseret" shareUrl={`${window.location.origin}/share/deseret`} />
-          <NavItem icon={Hotel} label="Angelhost" color="#EC4899" active={location.pathname === '/angelhost'} to="/angelhost" shareUrl={`${window.location.origin}/share/angelhost`} />
+          <NavItem icon={MapPin} label="Philippines" color="#3B82F6" active={location.pathname === '/philippines'} to="/philippines" categorySlug="philippines" />
+          <NavItem icon={Building} label="Internal" color="#A855F7" active={location.pathname === '/internal'} to="/internal" categorySlug="internal" />
+          <NavItem icon={Globe} label="International" color="#22C55E" active={location.pathname === '/international'} to="/international" categorySlug="international" />
+          <NavItem icon={GraduationCap} label="PH Interns" color="#F97316" active={location.pathname === '/ph-interns'} to="/ph-interns" categorySlug="ph-interns" />
+          <NavItem icon={BookOpen} label="Deseret" color="#EAB308" active={location.pathname === '/deseret'} to="/deseret" categorySlug="deseret" />
+          <NavItem icon={Hotel} label="Angelhost" color="#EC4899" active={location.pathname === '/angelhost'} to="/angelhost" categorySlug="angelhost" />
         </div>
 
         {/* Footer */}
@@ -162,9 +168,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, currentFilter, darkMode,
       </aside>
 
       <ShareLinkModal
-        isOpen={!!shareModalUrl}
-        onClose={() => setShareModalUrl(null)}
-        url={shareModalUrl || ''}
+        isOpen={!!shareSlug}
+        onClose={() => setShareSlug(null)}
+        onGenerate={handleGenerate}
         title={shareModalTitle}
         description="Anyone with this link can view and read these flipbooks."
         darkMode={darkMode}

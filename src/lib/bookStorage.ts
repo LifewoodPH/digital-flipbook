@@ -1,6 +1,40 @@
 import { supabase } from './supabase';
 import type { BookCategory } from '../../types';
 
+// --- Shared Links ---
+
+function generateToken(length = 12): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => chars[byte % chars.length]).join('');
+}
+
+export async function createShareLink(linkType: 'category' | 'book', target: string): Promise<string> {
+  const token = generateToken();
+  const { error } = await supabase
+    .from('shared_links')
+    .insert({ token, link_type: linkType, target });
+
+  if (error) {
+    console.error('Create share link error:', error);
+    throw new Error(`Failed to generate share link: ${error.message}`);
+  }
+
+  return token;
+}
+
+export async function resolveShareLink(token: string): Promise<{ linkType: string; target: string } | null> {
+  const { data, error } = await supabase
+    .from('shared_links')
+    .select('link_type, target')
+    .eq('token', token)
+    .single();
+
+  if (error || !data) return null;
+  return { linkType: data.link_type, target: data.target };
+}
+
 // Type for book in database
 export interface StoredBook {
   id: string;

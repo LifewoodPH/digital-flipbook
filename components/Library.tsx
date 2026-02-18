@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Check, Heart, Link2 } from 'lucide-react';
 import { LibraryBook } from '../types';
 import type { LibraryFilter } from './Sidebar';
 import ShareLinkModal from './ShareLinkModal';
+import { createShareLink } from '../src/lib/bookStorage';
 
 const FILTER_TO_SLUG: Partial<Record<LibraryFilter, string>> = {
   philippines: 'philippines',
@@ -203,7 +204,10 @@ const Library: React.FC<LibraryProps> = ({ books, filter, darkMode = false, isLo
         <ShareLinkModal
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
-          url={`${window.location.origin}/share/${shareSlug}`}
+          onGenerate={async () => {
+            const token = await createShareLink('category', shareSlug);
+            return `${window.location.origin}/s/${token}`;
+          }}
           title={`Share ${SECTION_TITLES[filter]}`}
           description="Anyone with this link can view and read these flipbooks."
           darkMode={darkMode || false}

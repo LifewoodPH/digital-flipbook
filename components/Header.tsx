@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Library as LibraryIcon, Menu, LayoutGrid, Layers, X, Share2 } from 'lucide-react';
 import ShareLinkModal from './ShareLinkModal';
+import { createShareLink } from '../src/lib/bookStorage';
 
 interface HeaderProps {
   view: 'home' | 'library' | 'reader' | 'upload';
@@ -64,7 +65,10 @@ const Header: React.FC<HeaderProps> = ({
           <ShareLinkModal
             isOpen={showShareModal}
             onClose={() => setShowShareModal(false)}
-            url={`${window.location.origin}/share/book/${readerBookId}`}
+            onGenerate={async () => {
+              const token = await createShareLink('book', readerBookId);
+              return `${window.location.origin}/s/${token}`;
+            }}
             title="Share Book"
             description={`Anyone with this link can view and read "${readerBookName || 'this book'}".`}
             darkMode={darkMode}
