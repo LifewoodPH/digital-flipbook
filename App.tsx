@@ -251,7 +251,16 @@ const App: React.FC = () => {
 
           if (!sampleText.trim()) continue;
 
-          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          // Check if API key is valid before attempting summarization
+          const apiKey = process.env.API_KEY;
+          if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY' || apiKey.includes('PLACEHOLDER')) {
+            console.warn(`[Auto-Summarize] Skipping ${book.name}: API key not configured.`);
+            // Mark as "processed" so we don't retry immediately
+            setBooks(prev => prev.map(b => b.id === book.id ? { ...b, summary: "Summary unavailable (API Key missing)" } : b));
+            continue;
+          }
+
+          const ai = new GoogleGenAI({ apiKey });
           const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `Provide a extremely concise one-sentence hook/summary (under 25 words) for a book based on this extracted text. Make it sound professional and intriguing: ${sampleText.substring(0, 2000)}`,
@@ -417,7 +426,10 @@ const App: React.FC = () => {
       // Show more specific error message
       let errorMessage = "Conversion failed. ";
       if (error?.message) {
-        if (error.message.includes('upload') || error.message.includes('storage')) {
+        if (error.message.includes('User authentication required')) {
+          errorMessage = "Session expired. Redirecting to Sign In...";
+          setTimeout(() => navigate('/signin'), 1500);
+        } else if (error.message.includes('upload') || error.message.includes('storage')) {
           errorMessage += "Storage upload error - check Supabase bucket permissions.";
         } else if (error.message.includes('save') || error.message.includes('insert') || error.message.includes('user_id')) {
           errorMessage += "Database error - check RLS policies or user authentication.";

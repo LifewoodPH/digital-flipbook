@@ -134,10 +134,21 @@ export async function saveBookMetadata(book: {
   is_favorite?: boolean;
   summary?: string;
 }): Promise<StoredBook> {
-  // Get current user (or use anonymous fallback)
-  const { data: { user } } = await supabase.auth.getUser();
+  // Get current user (try getUser first, then fall back to getSession)
+  let userId = (await supabase.auth.getUser()).data.user?.id;
+
+  if (!userId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    userId = session?.user?.id;
+  }
+
+  if (!userId) {
+    console.error("Attempted to save book without authenticated user.");
+    throw new Error("User authentication required. Please sign in to upload.");
+  }
 
   const insertData: any = {
+    user_id: userId, // Explicitly set user_id
     title: book.title,
     original_filename: book.original_filename,
     pdf_url: book.pdf_url,
@@ -149,12 +160,6 @@ export async function saveBookMetadata(book: {
     summary: book.summary || null
   };
 
-  // Only add user_id if we have an authenticated user
-  // Some RLS policies auto-fill this, others require it
-  if (user) {
-    insertData.user_id = user.id;
-  }
-
   const { data, error } = await supabase
     .from('books')
     .insert(insertData)
@@ -163,12 +168,41 @@ export async function saveBookMetadata(book: {
 
   if (error) {
     console.error('Save metadata error:', error);
+
+    // FIX: Self-healing for missing profiles (Foreign Key Violation)
+    if (error.code === '23503' && error.message.includes('books_user_id_fkey')) {
+      console.warn('Missing user profile detected. Attempting to create one...');
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userData.user.id,
+            email: userData.user.email,
+            full_name: userData.user.user_metadata?.full_name || 'User'
+          });
+
+        if (!profileError) {
+          console.log('Profile created successfully. Retrying book save...');
+          // Retry the book save
+          const { data: retryData, error: retryError } = await supabase
+            .from('books')
+            .insert(insertData)
+            .select()
+            .single();
+
+          if (!retryError) return retryData;
+          console.error('Retry failed:', retryError);
+        } else {
+          console.error('Failed to create missing profile:', profileError);
+        }
+      }
+    }
+
     // Check for common RLS/permission errors
     if (error.code === '42501' || error.message.includes('policy')) {
       throw new Error(`Database permission denied. Check RLS policies are set up correctly.`);
-    }
-    if (error.message.includes('user_id') || error.message.includes('null')) {
-      throw new Error(`User authentication required. Please sign in or disable RLS for testing.`);
     }
     throw new Error(`Failed to save book: ${error.message}`);
   }
